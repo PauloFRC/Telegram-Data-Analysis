@@ -14,7 +14,7 @@ LOAD CSV WITH HEADERS FROM 'file:///telegram_tratado.csv' AS row
 MERGE (t:Texto {texto: row.texto_limpo})
 CREATE (m:Mensagem {
     neo4j_id: randomUUID(),
-    date_message: row.date_message,
+    date_message: datetime(replace(row.date_message, " ", "T")),
     id_message: row.id_message,
     id_member_anonymous: row.id_member_anonymous,
     id_group_anonymous: row.id_group_anonymous,
@@ -36,6 +36,17 @@ MERGE (u:User {id: user_id});
 MATCH (m:Mensagem)
 MATCH (u:User {id: m.id_member_anonymous})
 MERGE (u)-[:SENT]->(m);
+
+// Assinala usuários ao seu grupo mais ativo para auxiliar em análises
+MATCH (u:User)-[:SENT]->(m:Mensagem)
+WITH u, m.id_group_anonymous AS group_id, count(*) AS msg_count
+WITH u, collect({group: group_id, count: msg_count}) AS groups
+WITH u,
+     reduce(best = {group: null, count: 0}, g IN groups |
+         CASE WHEN g.count > best.count THEN g ELSE best END
+     ) AS top_group
+SET u.id_most_active_group = top_group.group;
+
 
 // Conecta usuários com mensagens enviadas em comum
 MATCH (t:Texto)<-[:HAS_TEXT]-(m1:Mensagem)<-[:SENT]-(u1:User)
@@ -64,3 +75,10 @@ WHERE u1.id < u2.id
 WITH u1, u2, count(t) AS shared_misinfo_count
 MERGE (u1)-[r:SHARES_MISINFORMATION]-(u2)
 SET r.weight = shared_misinfo_count;
+
+// Cria os nós de Grupo e conecta usuarios caso tenha mensagem pertecente ao grupo
+MATCH (m:Mensagem) WITH DISTINCT m.id_group_anonymous AS group_id MERGE (g:Grupo {id: group_id});
+
+MATCH (u:User)-[:SENT]->(m:Mensagem)
+MATCH (g:Grupo {id: m.id_group_anonymous})
+MERGE (u)-[:PARTE_DE]->(g);

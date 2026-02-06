@@ -1,7 +1,5 @@
 # Análise de Mensagens do Telegram com Neo4j
 
-Paulo Ricardo Fernandes Rodrigues
-
 Link do dataset: https://drive.google.com/file/d/1c_hLzk85pYw-huHSnFYZM_gn-dUsYRDm/view?usp=sharing
 
 Instruções:
